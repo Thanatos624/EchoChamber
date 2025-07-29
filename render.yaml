@@ -10,13 +10,13 @@ services:
     plan: free
     ipAllowList: [] # Allows connections only from other services in your Render account
 
-  # The main Django Web Service (runs gunicorn)
+  # The main Django Web Service, now running both gunicorn and daphne
   - type: web
     name: echo-chamber-web
     runtime: python
     plan: free
     buildCommand: "./build.sh"
-    startCommand: "gunicorn blog_project.wsgi:application"
+    startCommand: "./run_servers.sh" # Use the new script to start both servers
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -31,26 +31,3 @@ services:
         generateValue: true # Render will create a secure secret key for you
       - key: PYTHON_VERSION
         value: 3.10.0
-
-  # The Worker for our Live Chat (runs daphne)
-  - type: worker
-    name: echo-chamber-chat
-    runtime: python
-    plan: free
-    startCommand: "daphne -b 0.0.0.0 -p 10000 blog_project.asgi:application"
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: database
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: redis
-          property: connectionString
-      - key: SECRET_KEY
-        # This syncs the secret key from the web service we defined above
-        fromService:
-          type: web
-          name: echo-chamber-web
-          envVarKey: SECRET_KEY
