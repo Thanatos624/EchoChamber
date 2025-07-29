@@ -10,13 +10,18 @@ services:
     plan: free
     ipAllowList: [] # Allows connections only from other services in your Render account
 
-  # The main Django Web Service, now running both gunicorn and daphne
+  # The main Django Web Service, now running ONLY daphne
   - type: web
     name: echo-chamber-web
     runtime: python
     plan: free
-    buildCommand: "./build.sh"
-    startCommand: "./run_servers.sh" # Use the new script to start both servers
+    buildCommand: "chmod +x ./build.sh && ./build.sh"
+    # Daphne will now handle both HTTP and WebSocket traffic
+    startCommand: "daphne -b 0.0.0.0 -p $PORT blog_project.asgi:application"
+    disks:
+      - name: media-storage
+        mountPath: /app/media
+        sizeGB: 1
     envVars:
       - key: DATABASE_URL
         fromDatabase:
