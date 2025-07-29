@@ -1,15 +1,14 @@
-services:
+databases:
   # A free PostgreSQL Database for our application
-  - type: pserv
-    name: database
+  - name: database
     plan: free
-    # (Render will automatically use the latest stable version)
 
+addons:
   # A free Redis instance for the chat's channel layer
-  - type: redis
-    name: redis
+  - name: redis
     plan: free
 
+services:
   # The main Django Web Service (runs gunicorn)
   - type: web
     name: echo-chamber-web
@@ -23,8 +22,7 @@ services:
           name: database
           property: connectionString
       - key: REDIS_URL
-        fromService:
-          type: redis
+        fromAddon:
           name: redis
           property: connectionString
       - key: SECRET_KEY
@@ -44,8 +42,7 @@ services:
           name: database
           property: connectionString
       - key: REDIS_URL
-        fromService:
-          type: redis
+        fromAddon:
           name: redis
           property: connectionString
       - key: SECRET_KEY
