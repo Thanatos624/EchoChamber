@@ -1,15 +1,22 @@
 import os
 from pathlib import Path
-from decouple import config # <-- Import config
+from decouple import config
+import dj_database_url # <-- Import dj_database_url
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Securely load the secret key and debug status
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['Monster624.pythonanywhere.com', '127.0.0.1']
+# Update ALLOWED_HOSTS for Render
+# Render will add your live URL automatically, but we add localhost for local testing.
+ALLOWED_HOSTS = ['127.0.0.1']
 
+RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default=None)
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 
@@ -57,29 +64,27 @@ TEMPLATES = [
     },
 ]
 
+DATABASES = {
+    'default': dj_database_url.config(
+        # Fallback to your local sqlite3 database if DATABASE_URL is not set
+        default='sqlite:///db.sqlite3',
+        conn_max_age=600
+    )
+}
+
+# Channel Layer configuration for Render
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+            # Read the Redis URL from the environment variable provided by Render
+            "hosts": [config('REDIS_URL', default='redis://localhost:6379')],
         },
     },
 }
-
 WSGI_APPLICATION = 'blog_project.wsgi.application'
 
 ASGI_APPLICATION = 'blog_project.asgi.application'
-
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
 
 
 # Password validation
