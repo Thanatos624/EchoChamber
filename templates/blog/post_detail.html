@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load crispy_forms_tags %}
 
 {% block title %}{{ post.title }}{% endblock %}
 
@@ -12,86 +13,76 @@
         <div class="card-body">
             <h1 class="card-title">{{ post.title }}</h1>
             <p class="card-subtitle text-muted mb-2">
-                by <a href="{% url 'user-posts' post.author.username %}">{{ post.author.username }}</a> on {{ post.publication_date|date:"F d, Y" }}
+                Published by <a href="{% url 'user-posts' post.author.username %}" class="author-link">{{ post.author.username }}</a> on {{ post.publication_date|date:"F d, Y" }}
             </p>
             <hr>
-            <p class="card-text">{{ post.content|linebreaksbr }}</p>
-
-            <!-- Only show Update/Delete buttons to the author -->
-            {% if post.author == user %}
-                <a href="{% url 'post-update' post.pk %}" class="btn btn-secondary">Update</a>
-                <a href="{% url 'post-delete' post.pk %}" class="btn btn-danger">Delete</a>
-            {% endif %}
+            <div class="card-text mt-4">
+                {{ post.content|linebreaks }}
+            </div>
 
             <!-- Like Button and Count -->
             <div class="d-flex align-items-center mt-3">
-                <form action="{% url 'like-post' post.pk %}" method="POST" class="me-3">
-                    {% csrf_token %}
-                    {% if user in post.likes.all %}
-                        <button type="submit" class="btn btn-danger">Unlike</button>
-                    {% else %}
-                        <button type="submit" class="btn btn-primary">Like</button>
-                    {% endif %}
-                </form>
+                {% if user.is_authenticated %}
+                    <form action="{% url 'like-post' post.pk %}" method="POST" class="me-3">
+                        {% csrf_token %}
+                        {% if user in post.likes.all %}
+                            <button type="submit" class="btn btn-danger">Unlike</button>
+                        {% else %}
+                            <button type="submit" class="btn btn-primary">Like</button>
+                        {% endif %}
+                    </form>
+                {% endif %}
                 <strong>{{ post.likes.count }} Like{{ post.likes.count|pluralize }}</strong>
             </div>
+
+            <!-- Post Controls for Author -->
+            {% if user.is_authenticated and user == post.author %}
+                <div class="mt-4 border-top pt-3">
+                    <a class="btn btn-secondary" href="{% url 'post-update' post.id %}">Update</a>
+                    <a class="btn btn-danger" href="{% url 'post-delete' post.id %}">Delete</a>
+                </div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Comment Section -->
+    <!-- Comments Section -->
     <div class="card mb-4">
         <div class="card-body">
-            <h3>Comments</h3>
-            <hr>
+            <h3 class="mb-3">Comments</h3>
             {% if user.is_authenticated %}
-                <form method="post">
+                <form method="POST">
                     {% csrf_token %}
-                    <div class="mb-3">
-                        {{ comment_form.text }}
-                    </div>
-                    <button type="submit" class="btn btn-primary">Submit Comment</button>
+                    {{ comment_form|crispy }}
+                    <button type="submit" class="btn btn-primary mt-2">Submit Comment</button>
                 </form>
+                <hr>
             {% else %}
-                <p><a href="{% url 'login' %}?next={{ request.path }}">Log in</a> to post a comment.</p>
+                <div class="alert alert-info">
+                    You must be <a href="{% url 'login' %}">logged in</a> to post a comment.
+                </div>
             {% endif %}
-            <hr>
+
             {% for comment in comments %}
-                <div class="mb-3">
-                    <strong>{{ comment.author.username }}</strong>
-                    <small class="text-muted">{{ comment.creation_date|timesince }} ago</small>
-                    <p>{{ comment.text|linebreaksbr }}</p>
+                <div class="d-flex mb-3">
+                    <div class="ms-3">
+                        <div class="fw-bold">{{ comment.author.username }}</div>
+                        <small class="text-muted">{{ comment.created_date|date:"F d, Y, P" }}</small>
+                        <p>{{ comment.text|linebreaks }}</p>
+                    </div>
                 </div>
             {% empty %}
-                <p>No comments yet.</p>
+                <p>No comments yet. Be the first to comment!</p>
             {% endfor %}
         </div>
     </div>
 
-
-    <!-- Live Chat Section -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <h3>Live Chat</h3>
-            <hr>
-            <div id="chat-log" class="mb-3" style="height: 200px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; background-color: #f8f9fa;">
-                <!-- Chat messages will appear here -->
-            </div>
-            {% if user.is_authenticated %}
-                <div class="input-group">
-                    <input id="chat-message-input" type="text" class="form-control" placeholder="Type message...">
-                    <button id="chat-message-submit" class="btn btn-success">Send</button>
-                </div>
-            {% else %}
-                <p><a href="{% url 'login' %}?next={{ request.path }}">Log in</a> to join the chat.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Recommendations Section -->
-    <div class="mt-5">
-        <h3>You might also like:</h3>
-        <div id="recommendations" class="list-group">
-            <p class="list-group-item">Loading recommendations...</p>
+    <!-- Chat Room Section -->
+    <div class="chat-container mb-4">
+        <h3>Live Chat</h3>
+        <div id="chat-log" class="form-control" style="height: 200px; overflow-y: scroll;"></div>
+        <div class="input-group mt-2">
+            <input id="chat-message-input" type="text" class="form-control" placeholder="Type message...">
+            <button id="chat-message-submit" class="btn btn-success">Send</button>
         </div>
     </div>
 
@@ -101,35 +92,16 @@
     <script>
         const postId = JSON.parse(document.getElementById('post-id').textContent);
 
-        // Recommendations Script
-        const recommendationsContainer = document.querySelector('#recommendations');
-        fetch(`/api/recommendations/content/${postId}/`)
-            .then(response => response.json())
-            .then(data => {
-                recommendationsContainer.innerHTML = '';
-                if (data.length > 0) {
-                    data.forEach(rec => {
-                        const link = document.createElement('a');
-                        link.href = `/post/${rec.id}/`;
-                        link.className = 'list-group-item list-group-item-action';
-                        link.textContent = rec.title;
-                        recommendationsContainer.appendChild(link);
-                    });
-                } else {
-                    recommendationsContainer.innerHTML = '<p class="list-group-item">No recommendations available.</p>';
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching recommendations:', error);
-                recommendationsContainer.innerHTML = '<p class="list-group-item">Could not load recommendations.</p>';
-            });
-
         // Chat Script
         if (document.querySelector('#chat-message-input')) {
             const username = JSON.parse(document.getElementById('user-username').textContent);
             const chatLog = document.querySelector('#chat-log');
+            
+            // Use wss:// for secure connections on live sites
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const chatSocket = new WebSocket(
-                'ws://'
+                protocol
+                + '//'
                 + window.location.host
                 + '/ws/chat/'
                 + postId
@@ -149,7 +121,7 @@
 
             document.querySelector('#chat-message-input').focus();
             document.querySelector('#chat-message-input').onkeyup = function(e) {
-                if (e.key === 'Enter') {  // enter, return
+                if (e.key === 'Enter') {
                     document.querySelector('#chat-message-submit').click();
                 }
             };
