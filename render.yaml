@@ -1,18 +1,19 @@
-services:
+databases:
   # A free PostgreSQL Database for our application
-  - type: pserv
-    name: database
+  - name: database
     plan: free
 
+services:
   # A free Redis instance for the chat's channel layer
   - type: redis
     name: redis
     plan: free
+    ipAllowList: [] # Allows connections only from other services in your Render account
 
   # The main Django Web Service (runs gunicorn)
   - type: web
     name: echo-chamber-web
-    env: python
+    runtime: python
     plan: free
     buildCommand: "./build.sh"
     startCommand: "gunicorn blog_project.wsgi:application"
@@ -34,7 +35,7 @@ services:
   # The Worker for our Live Chat (runs daphne)
   - type: worker
     name: echo-chamber-chat
-    env: python
+    runtime: python
     plan: free
     startCommand: "daphne -b 0.0.0.0 -p 10000 blog_project.asgi:application"
     envVars:
