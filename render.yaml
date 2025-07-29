@@ -1,14 +1,14 @@
-databases:
-  # A free PostgreSQL Database for our application
-  - name: database
-    plan: free
-
-addons:
-  # A free Redis instance for the chat's channel layer
-  - name: redis
-    plan: free
-
 services:
+  # A free PostgreSQL Database for our application
+  - type: pserv
+    name: database
+    plan: free
+
+  # A free Redis instance for the chat's channel layer
+  - type: redis
+    name: redis
+    plan: free
+
   # The main Django Web Service (runs gunicorn)
   - type: web
     name: echo-chamber-web
@@ -22,7 +22,8 @@ services:
           name: database
           property: connectionString
       - key: REDIS_URL
-        fromAddon:
+        fromService:
+          type: redis
           name: redis
           property: connectionString
       - key: SECRET_KEY
@@ -42,7 +43,8 @@ services:
           name: database
           property: connectionString
       - key: REDIS_URL
-        fromAddon:
+        fromService:
+          type: redis
           name: redis
           property: connectionString
       - key: SECRET_KEY
